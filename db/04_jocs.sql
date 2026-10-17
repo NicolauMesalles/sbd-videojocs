@@ -1,0 +1,22 @@
+USE plataforma_jocs;
+INSERT INTO jocs (titol, genere, pegi) VALUES
+('Royal Siege', 'Accio', 16),
+('Iron Hunters', 'Aventura', 12),
+('Crystal Dragons', 'Aventura', 12),
+('Neon Frontier', 'Terror', 18),
+('Neon Arena', 'Estrategia', 7),
+('Royal Frontier', 'Puzzle', 3),
+('Shadow Racers', 'Accio', 16),
+('Shadow Kingdom', 'RPG', 12),
+('Neon Siege', 'Accio', 16),
+('Frozen Legacy', 'Estrategia', 7),
+('Shadow Legacy', 'Estrategia', 7),
+('Dark Racers', 'Puzzle', 3),
+('Neon Legends', 'Simulacio', 3),
+('Lost Quest', 'RPG', 12),
+('Crystal Quest', 'Terror', 18),
+('Dark Hunters', 'Terror', 18),
+('Wild Legends', 'RPG', 12),
+('Lost Legends', 'Simulacio', 3),
+('Shadow Frontier', 'Terror', 18),
+('Crystal Arena', 'Terror', 18);
