@@ -14,7 +14,7 @@ def dni_nou():
 
 
 filas = []
-for i in range(5):
+for i in range(40):
     nom = fake.first_name().replace("'", "''")
     cognoms = (fake.last_name() + " " + fake.last_name()).replace("'", "''")
     dni = dni_nou()
@@ -22,7 +22,7 @@ for i in range(5):
     telefon = fake.numerify("6########")
     filas.append(f"('{nom}', '{cognoms}', '{dni}', '{email}', '{telefon}')")
 
-sql = "INSERT INTO tutors (nom, cognoms, dni, email, telefon) VALUES\n" + ",\n".join(filas) + ";"
+sql = "USE plataforma_jocs;\nINSERT INTO tutors (nom, cognoms, dni, email, telefon) VALUES\n" + ",\n".join(filas) + ";"
 
-with open("app/prova_tutors.sql", "w", encoding="utf-8") as f:
+with open("db/02_tutors.sql", "w", encoding="utf-8") as f:
     f.write(sql + "\n")
