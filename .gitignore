@@ -1,2 +1,4 @@
 .env
 app/prova_tutors.sql
+.venv/
+__pycache__/

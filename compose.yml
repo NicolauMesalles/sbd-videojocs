@@ -1,26 +1,35 @@
 services:
+  # genera els .sql de db/ amb els scripts de app/ i s'atura
+  app:
+    container_name: filler
+    image: python:3.12-slim
+    working_dir: /projecte
+    # faker calcula algunes dates amb la zona horaria, sense fixar-la cada maquina genera dades diferents
+    environment:
+      TZ: UTC
+    volumes:
+      - ./app:/projecte/app:ro
+      - ./db:/projecte/db
+      - ./requirements.txt:/projecte/requirements.txt:ro
+    command: >
+      sh -c "pip install -q --root-user-action=ignore -r requirements.txt &&
+             for f in app/generar_dades.py app/gen_*.py; do python $$f || exit 1; done"
+
   db:
     container_name: BBDD_Videojocs
     image: mysql:8.4
     restart: always
     env_file:
       - .env
-    ports: 
+    ports:
       - "127.0.0.1:3306:3306"
     volumes:
       - ./db:/docker-entrypoint-initdb.d:ro
       - db_data:/var/lib/mysql
-
-  app:
-    container_name: filler
-    image: python:3.12-slim
-    #hem de decidir si utilitzem una imatge pelada
-    #o la construim nosaltres desde app/ amb un Dockerfile
-    #si es el segon utilitzariem un build
-    env_file:
-      - .env
+    # mysql no arrenca fins que app ha generat tots els .sql
     depends_on:
-      - db
+      app:
+        condition: service_completed_successfully
 
 volumes:
   db_data:
