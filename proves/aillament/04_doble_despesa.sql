@@ -43,7 +43,7 @@ SELECT COUNT(*) FROM compres WHERE id_usuari = 14;       -- 5
 
 
 -- [pas 6] RESTAURAR
-DELETE FROM compres WHERE id_compra IN (ID_A, ID_B);  -- els dos números apuntats
+DELETE FROM compres WHERE id_compra IN (1840, 1841);  -- els dos números apuntats
 UPDATE usuaris SET saldo_monedes = 4800 WHERE id_usuari = 14;
 SELECT saldo_monedes FROM usuaris WHERE id_usuari = 14;  -- 4800
 SELECT COUNT(*) FROM compres WHERE id_usuari = 14;       -- 3
@@ -95,7 +95,7 @@ SELECT COUNT(*) FROM compres WHERE id_usuari = 14;       -- 4
 
 
 -- [pas 6] RESTAURAR
-DELETE FROM compres WHERE id_compra = ID_A;  -- el número anotat
+DELETE FROM compres WHERE id_compra = 1842;  -- el número anotat
 UPDATE usuaris SET saldo_monedes = 4800 WHERE id_usuari = 14;
 SELECT saldo_monedes FROM usuaris WHERE id_usuari = 14;  -- 4800
 SELECT COUNT(*) FROM compres WHERE id_usuari = 14;       -- 3
