@@ -21,7 +21,55 @@ CALL recarregar_monedes(13, 1, 10.00); -- saldo_actual 1650
 SELECT saldo_monedes, (SELECT COUNT(*) FROM recarregues WHERE id_usuari = 13) AS recarregues
 FROM usuaris WHERE id_usuari = 13; -- 1650 | 3
 
--- aqui tornem a mirar q quadri tot dsp de comprar i recarregar
+-- ara venen els errors, per aixo agafem el 15 q te 100 monedes, 3 compres i 1 recarrega amb el metode 3
+-- la idea es q dsp de cada error el 15 segueixi exactament igual, si canvia algo vol dir q el rollback no ha anat
+SELECT saldo_monedes,
+  (SELECT COUNT(*) FROM compres WHERE id_usuari = 15) AS compres,
+  (SELECT COUNT(*) FROM recarregues WHERE id_usuari = 15) AS recarregues
+FROM usuaris WHERE id_usuari = 15; -- 100 | 3 | 1
+
+-- l'objecte 1 val 1000 i el 15 nomes en te 100, aixi q no li arriba
+-- aqui la compra si q s'arriba a inserir, pero al restar el saldo queda negatiu i salta el check de saldo_monedes >= 0
+-- llavors el rollback ha de treure la compra q ja estava posada, x aixo tornem a mirar i ha de tenir 3 compres igual
+CALL comprar_objecte(15, 1);
+-- ERROR 3819: Check constraint 'usuaris_chk_1' is violated.
+SELECT saldo_monedes,
+  (SELECT COUNT(*) FROM compres WHERE id_usuari = 15) AS compres,
+  (SELECT COUNT(*) FROM recarregues WHERE id_usuari = 15) AS recarregues
+FROM usuaris WHERE id_usuari = 15; -- 100 | 3 | 1
+
+-- l'objecte 999 no existeix, aixi q ha de petar abans de fer res
+CALL comprar_objecte(15, 999);
+-- ERROR 1644: L'objecte no existeix
+
+-- el metode 999 tampoc existeix, aqui no el comprovem nosaltres sino q peta la fk de recarregues
+CALL recarregar_monedes(15, 999, 10.00);
+-- ERROR 1452: Cannot add or update a child row: a foreign key constraint fails
+
+-- el metode 2 es del 14, si el 15 intenta pagar amb ell no pot ser, nomes pots pagar amb lo teu
+CALL recarregar_monedes(15, 2, 10.00);
+-- ERROR 1644: El metode de pagament no es d'aquest usuari
+
+-- recarregar -5 euros no te sentit, aqui salta el check de import_eur > 0
+CALL recarregar_monedes(15, 3, -5.00);
+-- ERROR 3819: Check constraint 'recarregues_chk_1' is violated.
+
+-- a les dades de m0 no hi ha ningu suspes, aixi q suspenem el 15 nomes per provar-ho
+-- si esta suspes no pot ni comprar ni recarregar, i dsp el tornem a posar actiu
+UPDATE usuaris SET estat = 'suspes' WHERE id_usuari = 15;
+CALL comprar_objecte(15, 3);
+-- ERROR 1644: El compte no esta actiu, no pot comprar
+CALL recarregar_monedes(15, 3, 10.00);
+-- ERROR 1644: El compte no esta actiu, no pot recarregar
+UPDATE usuaris SET estat = 'actiu' WHERE id_usuari = 15;
+
+-- dsp de tots els errors el 15 ha d'estar igual q al principi, si es aixi vol dir q cap error ha deixat res a mitges
+SELECT saldo_monedes,
+  (SELECT COUNT(*) FROM compres WHERE id_usuari = 15) AS compres,
+  (SELECT COUNT(*) FROM recarregues WHERE id_usuari = 15) AS recarregues
+FROM usuaris WHERE id_usuari = 15; -- 100 | 3 | 1
+
+-- aqui tornem a mirar q quadri tot dsp de comprar, recarregar i tots els errors
 -- si no surt 0 es q algun procediment ha tocat el saldo pero no la taula o al reves, i aixo no pot pasar
 SELECT COUNT(*) AS saldos_que_no_quadren
 FROM usuaris u
