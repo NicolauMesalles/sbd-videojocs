@@ -1,0 +1,2 @@
+# els .sh de db/ els executa mysql dins el contenidor (linux): amb CRLF no arrenquen
+*.sh text eol=lf
