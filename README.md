@@ -12,7 +12,8 @@ Projecte de SBD (cas 4): base de dades MySQL per a una plataforma de videojocs o
 .
 ├── app/              scripts Python que generen les dades de prova
 ├── db/               scripts SQL que MySQL executa en ordre en arrencar
-├── docs/             documentació (diagrama E-R)
+├── docs/             documentació (diagrama E-R, informes de fita i evidències)
+├── proves/           guions de les proves de M1, per executar a mà pas a pas
 ├── backup/           còpies de seguretat
 ├── compose.yml       serveis de Docker
 ├── .env.example      plantilla de variables d'entorn
@@ -139,3 +140,28 @@ python app/gen_denuncies.py
 ```
 
 Després cal recrear el volum (`docker compose down -v`) perquè MySQL torni a carregar les dades.
+
+## Proves d'aïllament (M1)
+
+Els guions de `proves/aillament/` no s'executen de cop: cada pas es copia a mà en una de dues sessions de MySQL obertes alhora. Cal obrir dues terminals i, a cadascuna:
+
+```bash
+docker exec -it BBDD_Videojocs mysql -u root -p plataforma_jocs
+```
+
+La terminal 1 és la sessió A i la terminal 2 és la sessió B. Cada pas del guió diu a quina sessió toca.
+
+| Guió | Què demostra | Com s'evita |
+|---|---|---|
+| `01_lectura_bruta.sql` | lectura bruta amb `READ UNCOMMITTED` | `READ COMMITTED` |
+| `02_no_repetible.sql` | lectura no repetible amb `READ COMMITTED` | `REPEATABLE READ` |
+| `03_fantasma.sql` | lectura fantasma amb `READ COMMITTED` | `REPEATABLE READ` |
+| `04_doble_despesa.sql` | dues compres alhora gasten el mateix saldo | procediment `comprar_objecte` (`SELECT ... FOR UPDATE`) |
+
+Tots fan servir l'usuari 14. Amb la base de dades acabada de carregar (`docker compose down -v` i `docker compose up -d`) té 4800 monedes i 3 compres, i els valors dels comentaris dels guions parteixen d'aquí.
+
+Cada guió té dues parts (el problema i la solució) i acaba restaurant les dades, de manera que es poden executar en qualsevol ordre. Als guions 03 i 04, l'id del `DELETE` de la restauració s'ha de canviar pel que retorni `SELECT LAST_INSERT_ID();` en aquella execució.
+
+El guió 04 necessita els procediments de `db/13_transaccions.sql`. A la part 2, la sessió B es queda esperant fins que la sessió A fa `COMMIT`; si passen més de 50 segons falla amb l'error 1205.
+
+Les captures de cada prova són a `docs/evidencies/M1/aillament/`, en una carpeta per guió, amb la solució a la subcarpeta `solucio/`.
