@@ -12,7 +12,8 @@ Projecte de SBD (cas 4): base de dades MySQL per a una plataforma de videojocs o
 .
 ├── app/              scripts Python que generen les dades de prova
 ├── db/               scripts SQL que MySQL executa en ordre en arrencar
-├── docs/             documentació (diagrama E-R)
+├── docs/             documentació (diagrama E-R, informes de fita i evidències)
+├── proves/           guions de les proves de M1, per executar a mà pas a pas
 ├── backup/           còpies de seguretat
 ├── compose.yml       serveis de Docker
 ├── .env.example      plantilla de variables d'entorn
@@ -28,6 +29,8 @@ Cal tenir Docker amb Docker Compose.
    ```bash
    cp .env.example .env
    ```
+
+   `PROVES_PASSWORD` és la contrasenya dels quatre comptes de prova de M1 i no pot portar cometes simples. Si falta, MySQL arrenca igualment però els comptes no es creen.
 
 2. Arrencar-ho tot:
 
@@ -139,3 +142,72 @@ python app/gen_denuncies.py
 ```
 
 Després cal recrear el volum (`docker compose down -v`) perquè MySQL torni a carregar les dades.
+
+## Vistes i comptes de prova (M1)
+
+`db/12_vistes.sql` crea quatre vistes. Dues amaguen columnes i dues filtren files:
+
+| Vista | Què deixa veure |
+|---|---|
+| `v_perfil_usuaris` | usuaris sense email, hash, nom, cognoms, data de naixement ni saldo |
+| `v_tutors` | tutors sense DNI, email ni telèfon |
+| `v_compres_jugador` | només les compres del jugador que ha obert la sessió |
+| `v_missatges_denunciats` | només els missatges que tenen una denúncia |
+
+`db/14_comptes_prova.sh` crea quatre comptes de MySQL que només tenen `SELECT` sobre les vistes, no sobre les taules. El nom de cada compte és el `nom_usuari` d'un usuari de les dades de prova i la contrasenya és `PROVES_PASSWORD` del `.env`:
+
+| Compte | Usuari | Vistes que pot consultar |
+|---|---|---|
+| `jordiarranz` | jugador, id 13 | `v_compres_jugador` |
+| `hroura` | jugador, id 15 | `v_compres_jugador` |
+| `renatobartolome` | moderador, id 3 | `v_perfil_usuaris`, `v_missatges_denunciats` |
+| `ojedajuan-jose` | auditor, id 11 | `v_perfil_usuaris`, `v_tutors` |
+
+Per entrar amb un d'aquests comptes:
+
+```bash
+docker exec -it BBDD_Videojocs mysql -u jordiarranz -p plataforma_jocs
+```
+
+Les proves són a `proves/vistes/proves_vistes.sql`: cada bloc diu amb quin compte s'ha d'executar. Les captures són a `docs/evidencies/M1/vistes/`.
+
+## Transaccions (M1)
+
+`db/13_transaccions.sql` crea dos procediments. Cadascun fa tota l'operació dins d'una transacció i, davant de qualsevol error, ho desfà tot i retorna l'error a qui l'ha cridat:
+
+| Procediment | Què fa |
+|---|---|
+| `comprar_objecte(id_usuari, id_objecte)` | insereix la compra i descompta el preu del saldo |
+| `recarregar_monedes(id_usuari, id_metode, import_eur)` | insereix la recàrrega i suma les monedes al saldo (1 € = 100 monedes) |
+
+```sql
+CALL comprar_objecte(13, 2);
+CALL recarregar_monedes(13, 1, 10.00);
+```
+
+Les proves són a `proves/transaccions/proves_transaccions.sql` i s'executen amb `root`, d'una en una. Inclouen una compra i una recàrrega correctes i els errors provocats (saldo insuficient, objecte o mètode inexistent, mètode d'un altre usuari, import negatiu i compte suspès), i acaben deixant les dades com estaven. Les captures són a `docs/evidencies/M1/transaccions/`.
+
+## Proves d'aïllament (M1)
+
+Els guions de `proves/aillament/` no s'executen de cop: cada pas es copia a mà en una de dues sessions de MySQL obertes alhora. Cal obrir dues terminals i, a cadascuna:
+
+```bash
+docker exec -it BBDD_Videojocs mysql -u root -p plataforma_jocs
+```
+
+La terminal 1 és la sessió A i la terminal 2 és la sessió B. Cada pas del guió diu a quina sessió toca.
+
+| Guió | Què demostra | Com s'evita |
+|---|---|---|
+| `01_lectura_bruta.sql` | lectura bruta amb `READ UNCOMMITTED` | `READ COMMITTED` |
+| `02_no_repetible.sql` | lectura no repetible amb `READ COMMITTED` | `REPEATABLE READ` |
+| `03_fantasma.sql` | lectura fantasma amb `READ COMMITTED` | `REPEATABLE READ` |
+| `04_doble_despesa.sql` | dues compres alhora gasten el mateix saldo | procediment `comprar_objecte` (`SELECT ... FOR UPDATE`) |
+
+Tots fan servir l'usuari 14. Amb la base de dades acabada de carregar (`docker compose down -v` i `docker compose up -d`) té 4800 monedes i 3 compres, i els valors dels comentaris dels guions parteixen d'aquí.
+
+Cada guió té dues parts (el problema i la solució) i acaba restaurant les dades, de manera que es poden executar en qualsevol ordre. Als guions 03 i 04, l'id del `DELETE` de la restauració s'ha de canviar pel que retorni `SELECT LAST_INSERT_ID();` en aquella execució.
+
+El guió 04 necessita els procediments de `db/13_transaccions.sql`. A la part 2, la sessió B es queda esperant fins que la sessió A fa `COMMIT`; si passen més de 50 segons falla amb l'error 1205.
+
+Les captures de cada prova són a `docs/evidencies/M1/aillament/`, en una carpeta per guió, amb la solució a la subcarpeta `solucio/`.
