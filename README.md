@@ -30,6 +30,8 @@ Cal tenir Docker amb Docker Compose.
    cp .env.example .env
    ```
 
+   `PROVES_PASSWORD` és la contrasenya dels quatre comptes de prova de M1 i no pot portar cometes simples. Si falta, MySQL arrenca igualment però els comptes no es creen.
+
 2. Arrencar-ho tot:
 
    ```bash
@@ -140,6 +142,50 @@ python app/gen_denuncies.py
 ```
 
 Després cal recrear el volum (`docker compose down -v`) perquè MySQL torni a carregar les dades.
+
+## Vistes i comptes de prova (M1)
+
+`db/12_vistes.sql` crea quatre vistes. Dues amaguen columnes i dues filtren files:
+
+| Vista | Què deixa veure |
+|---|---|
+| `v_perfil_usuaris` | usuaris sense email, hash, nom, cognoms, data de naixement ni saldo |
+| `v_tutors` | tutors sense DNI, email ni telèfon |
+| `v_compres_jugador` | només les compres del jugador que ha obert la sessió |
+| `v_missatges_denunciats` | només els missatges que tenen una denúncia |
+
+`db/14_comptes_prova.sh` crea quatre comptes de MySQL que només tenen `SELECT` sobre les vistes, no sobre les taules. El nom de cada compte és el `nom_usuari` d'un usuari de les dades de prova i la contrasenya és `PROVES_PASSWORD` del `.env`:
+
+| Compte | Usuari | Vistes que pot consultar |
+|---|---|---|
+| `jordiarranz` | jugador, id 13 | `v_compres_jugador` |
+| `hroura` | jugador, id 15 | `v_compres_jugador` |
+| `renatobartolome` | moderador, id 3 | `v_perfil_usuaris`, `v_missatges_denunciats` |
+| `ojedajuan-jose` | auditor, id 11 | `v_perfil_usuaris`, `v_tutors` |
+
+Per entrar amb un d'aquests comptes:
+
+```bash
+docker exec -it BBDD_Videojocs mysql -u jordiarranz -p plataforma_jocs
+```
+
+Les proves són a `proves/vistes/proves_vistes.sql`: cada bloc diu amb quin compte s'ha d'executar. Les captures són a `docs/evidencies/M1/vistes/`.
+
+## Transaccions (M1)
+
+`db/13_transaccions.sql` crea dos procediments. Cadascun fa tota l'operació dins d'una transacció i, davant de qualsevol error, ho desfà tot i retorna l'error a qui l'ha cridat:
+
+| Procediment | Què fa |
+|---|---|
+| `comprar_objecte(id_usuari, id_objecte)` | insereix la compra i descompta el preu del saldo |
+| `recarregar_monedes(id_usuari, id_metode, import_eur)` | insereix la recàrrega i suma les monedes al saldo (1 € = 100 monedes) |
+
+```sql
+CALL comprar_objecte(13, 2);
+CALL recarregar_monedes(13, 1, 10.00);
+```
+
+Les proves són a `proves/transaccions/proves_transaccions.sql` i s'executen amb `root`, d'una en una. Inclouen una compra i una recàrrega correctes i els errors provocats (saldo insuficient, objecte o mètode inexistent, mètode d'un altre usuari, import negatiu i compte suspès), i acaben deixant les dades com estaven. Les captures són a `docs/evidencies/M1/transaccions/`.
 
 ## Proves d'aïllament (M1)
 
